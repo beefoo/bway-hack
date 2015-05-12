@@ -16,6 +16,7 @@
       this.subscribers_loaded = new $.Deferred();
       this.zipcodes = [];
       this.subscribers = [];
+      this.fade_intervals = {};
       
       $.when(this.zipcodes_loaded, this.subscribers_loaded).done(function() {
         
@@ -30,6 +31,26 @@
       
       this.loadSoundManager();
       this.loadData();      
+    };
+    
+    App.prototype.addFade = function(){
+      soundManager.fadeTo = function(id, dur, toVol, callback){
+        dur      = dur || 1000;
+        toVol    = toVol || 0;
+        callback = typeof callback == 'function' ? callback : function(){};
+        var s    = soundManager.getSoundById(id),
+            k    = s.volume,
+            t    = dur/Math.abs(k - toVol),
+            i    = setInterval(function(){
+                  k = k > toVol ? k - 1 : k + 1;
+                  s.setVolume(k);
+                  if(k == toVol){ 
+                          callback.call(this);
+                    clearInterval(i);
+                    i = null;
+                  }
+          }, t);  
+      }
     };
     
     App.prototype.addListeners = function(){      
@@ -89,6 +110,8 @@
     App.prototype.loadData = function(){
       var _this = this;
       
+      this.max_subscriber_group_size = 0;
+      
       $.getJSON('data/zipcodes.json', function(data) {
         console.log('Loaded '+data.length+' zipcodes.');        
         _this.zipcodes = data;     
@@ -97,6 +120,14 @@
       
       $.getJSON('data/subscribers.json', function(data) {
         console.log('Loaded '+data.length+' subscribers.');
+                
+        var zip_groups = _.groupBy(data, function(subscriber){ return subscriber.z; });
+        _.each(zip_groups, function(group){
+          if (group.length > _this.max_subscriber_group_size) {
+            _this.max_subscriber_group_size = group.length;
+          }
+        });
+        
         _this.subscribers = data;
         _this.subscribers_loaded.resolve();
       });      
@@ -105,25 +136,59 @@
     
     App.prototype.loadSoundManager = function(){
       var _this = this;
+      
+      this.instruments = [];
            
       soundManager.setup({
         url: 'vendor/',
         flashVersion: 9,
         preferFlash: false,
         onready: function() {
+          _.each(INSTRUMENTS, function(url){
+            var instrument = soundManager.createSound({
+              id: url,
+              url: url,
+              autoLoad: true,
+              autoPlay: true,
+              volume: 0,
+              onfinish: function() {
+                soundManager.play(url); 
+              }
+            });
+            _this.instruments.push(instrument);
+          });          
+          _this.addFade();
           _this.player_loaded.resolve();
         }
       });
     };
     
     App.prototype.lookupSeat = function(zip_i) {
-      var $chart = $('#chart');      
+      var _this = this,
+          $chart = $('#chart');      
       $chart.empty();
       
-      var seats = _.where(this.subscribers, {z: zip_i});
-      var seat_groups = _.groupBy(seats, function(seat){ return seat.x+','+seat.y; });
+      var min_volume = 2,
+          seats = _.where(this.subscribers, {z: zip_i}),
+          seat_groups = _.groupBy(seats, function(seat){ return seat.x+','+seat.y; }),
+          percent = seats.length / this.max_subscriber_group_size,
+          instrument_count = Math.ceil(percent * this.instruments.length),
+          volume = Math.ceil(percent * 100);
+          
+      if (volume < min_volume) volume = min_volume;
       
       $('.seat-group').removeClass('active');
+      
+      _.each(this.instruments, function(instrument, i){
+        if (i <= instrument_count) {          
+          // instrument.setVolume(volume);
+          soundManager.fadeTo(instrument.id, 100, volume);
+          
+        } else {
+          // instrument.setVolume(0);
+          soundManager.fadeTo(instrument.id, 100, 0);
+        }
+      });
       
       // existing zip group
       if ($('#seat-'+zip_i).length) {
@@ -131,7 +196,7 @@
       
       // new zip group
       } else {
-        $seats = $('<div id="seat-'+zip_i+'" class="seat-group active"></div>');
+        var $seats = $('<div id="seat-'+zip_i+'" class="seat-group active"></div>');
       
         _.each(seat_groups, function(group){
           var scale = 1 + group.length * 0.1,
