@@ -1,0 +1,17 @@
+name,position,x,y,w,h,tw,th
+Loge left,left,0,75,100,225,400,600
+First tier Boxes left,left,0,75,100,225,400,600
+Second tier Boxes left,left,0,75,100,225,400,600
+Loge right,right,300,75,100,225,400,600
+First tier Boxes right,right,300,75,100,225,400,600
+Second tier Boxes right,right,300,75,100,225,400,600
+Orchestra,center,125,75,150,100,400,600
+Parquet,center,125,75,150,100,400,600
+1st Tier,center,125,200,150,50,400,600
+2nd Tier,center,125,250,150,50,400,600
+3rd Tier,center,125,300,150,50,400,600
+First Terrace,center,50,375,300,50,400,600
+Second Terrace,center,50,425,300,50,400,600
+Dress Circle,center,50,425,300,50,400,600
+Balcony Front,center,0,500,400,50,400,600
+Balcony Rear,center,0,550,400,50,400,600
